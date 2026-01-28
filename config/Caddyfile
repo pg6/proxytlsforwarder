@@ -1,0 +1,10 @@
+{
+    email {$ACME_EMAIL}
+}
+
+(hetzner_tls) {
+    tls {
+        dns hetzner {$HETZNER_API_TOKEN}
+    }
+}
+

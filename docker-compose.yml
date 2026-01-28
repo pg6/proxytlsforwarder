@@ -1,0 +1,26 @@
+services:
+  caddy:
+    build: .
+    container_name: redirect-server
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - ACME_EMAIL=${ACME_EMAIL:-admin@example.com}
+      - HETZNER_API_TOKEN=${HETZNER_API_TOKEN}
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
