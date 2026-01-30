@@ -1,1 +1,11 @@
+# Environment files
+.env
 .env.prod
+.env.local
+
+# Caddy data (contains private keys and certificates)
+caddy_data/
+caddy_config/
+
+# Backups
+backups/

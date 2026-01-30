@@ -25,6 +25,13 @@ fi
     tls {
         dns hetzner {$HETZNER_API_TOKEN}
     }
+    log {
+        output file /data/access.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+        format json
+    }
 }
 
 EOF
