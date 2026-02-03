@@ -51,7 +51,7 @@ EOF
         [[ -z "$domain" || -z "$target" ]] && continue
 
         cat <<EOF
-${domain} {
+${domain}, *.${domain} {
     import hetzner_tls
     redir https://${target}{uri} 301
 }
