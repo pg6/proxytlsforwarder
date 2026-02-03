@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Ensure UTF-8 locale for proper IDN handling
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+
 usage() {
     echo "Usage: $0 <domain-list-file>"
     echo "  domain-list-file: Text file with one domain per line"
@@ -56,11 +60,36 @@ extract_domain() {
 # e.g., münchen.de -> xn--mnchen-3ya.de
 to_punycode() {
     local domain="$1"
-    # Use idn2 if available, otherwise return as-is
+
+    # Skip if already in Punycode format
+    if [[ "$domain" =~ xn-- ]]; then
+        echo "$domain"
+        return 0
+    fi
+
+    # Skip if domain contains only ASCII characters
+    if [[ "$domain" =~ ^[[:ascii:]]+$ ]]; then
+        echo "$domain"
+        return 0
+    fi
+
+    # Convert using idn2 with explicit UTF-8 handling
     if command -v idn2 &> /dev/null; then
-        echo "$domain" | idn2 2>/dev/null || echo "$domain"
+        local result
+        result=$(printf "%s" "$domain" | idn2 2>/dev/null)
+        if [[ -n "$result" ]]; then
+            echo "$result"
+        else
+            echo "$domain"
+        fi
     elif command -v idn &> /dev/null; then
-        echo "$domain" | idn 2>/dev/null || echo "$domain"
+        local result
+        result=$(printf "%s" "$domain" | idn 2>/dev/null)
+        if [[ -n "$result" ]]; then
+            echo "$result"
+        else
+            echo "$domain"
+        fi
     else
         echo "$domain"
     fi
