@@ -13,3 +13,7 @@ backups/
 # Generated configuration files
 config/Caddyfile
 data/domains.csv
+data/check_domains.csv
+data/check_timeout.csv
+data/check_addzones.csv
+tools/domain-login.txt
