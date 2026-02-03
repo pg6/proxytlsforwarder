@@ -52,6 +52,20 @@ extract_domain() {
     echo "$url"
 }
 
+# Convert domain to Punycode (IDN) format
+# e.g., münchen.de -> xn--mnchen-3ya.de
+to_punycode() {
+    local domain="$1"
+    # Use idn2 if available, otherwise return as-is
+    if command -v idn2 &> /dev/null; then
+        echo "$domain" | idn2 2>/dev/null || echo "$domain"
+    elif command -v idn &> /dev/null; then
+        echo "$domain" | idn 2>/dev/null || echo "$domain"
+    else
+        echo "$domain"
+    fi
+}
+
 # Extract base domain (without subdomain)
 # e.g., www.example.com -> example.com
 #       sub.example.com -> example.com
@@ -66,6 +80,8 @@ extract_base_domain() {
 # Check if domain redirects and extract target
 check_domain() {
     local domain="$1"
+    # Convert to Punycode if needed
+    domain=$(to_punycode "$domain")
     local url="http://${domain}"
 
     # Use curl to follow redirects and get final URL and HTTP status
@@ -96,11 +112,11 @@ check_domain() {
         return 1
     fi
 
-    # Extract domains
+    # Extract domains and convert to Punycode
     local original_domain
     local final_domain
-    original_domain=$(extract_domain "$url")
-    final_domain=$(extract_domain "$final_url")
+    original_domain=$(to_punycode "$(extract_domain "$url")")
+    final_domain=$(to_punycode "$(extract_domain "$final_url")")
 
     # Check if it's a redirect (domains are different)
     if [[ "$original_domain" != "$final_domain" ]]; then
