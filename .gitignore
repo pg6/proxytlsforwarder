@@ -17,3 +17,6 @@ data/check_domains.csv
 data/check_timeout.csv
 data/check_addzones.csv
 tools/domain-login.txt
+
+# Claude
+.claude/settings.local.json
