@@ -18,5 +18,8 @@ data/check_timeout.csv
 data/check_addzones.csv
 tools/domain-login.txt
 
+# Temporary files
+tmp/
+
 # Claude
 .claude/settings.local.json
