@@ -19,12 +19,13 @@ if [[ ! -f "$INPUT_FILE" ]]; then
     exit 1
 fi
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[0;33m'
-CYAN='\033[0;36m'
-GRAY='\033[0;90m'
+# Colors — using bright variants for readability in both light and dark terminals
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
+MAGENTA='\033[1;35m'
+DIM='\033[2m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
@@ -36,9 +37,10 @@ status_priority() {
         CANT_REACH_HTTPD) echo "3" ;;
         MANUAL_CHECK)    echo "4" ;;
         HTTP_*)          echo "5" ;;
-        REDIRECT)        echo "6" ;;
-        STATIC)          echo "7" ;;
-        CONF_VALID)      echo "8" ;;
+        SEDO)            echo "6" ;;
+        REDIRECT)        echo "7" ;;
+        STATIC)          echo "8" ;;
+        CONF_VALID)      echo "9" ;;
         *)               echo "5" ;;
     esac
 }
@@ -50,8 +52,9 @@ status_color() {
         CANT_RESOLVE_IP) echo "$RED" ;;
         CANT_REACH_HTTPD) echo "$RED" ;;
         MANUAL_CHECK)    echo "$YELLOW" ;;
-        REDIRECT)        echo "$CYAN" ;;
-        STATIC)          echo "$CYAN" ;;
+        REDIRECT)        echo "$BLUE" ;;
+        STATIC)          echo "$MAGENTA" ;;
+        SEDO)            echo "$YELLOW" ;;
         HTTP_*)          echo "$YELLOW" ;;
         *)               echo "$RESET" ;;
     esac
@@ -75,9 +78,9 @@ while IFS='|' read -r _pri status domain ip notes; do
     color=$(status_color "$status")
     notes_str=""
     if [[ -n "$notes" ]]; then
-        notes_str="${GRAY} ${notes}${RESET}"
+        notes_str="${DIM} ${notes}${RESET}"
     fi
-    printf "  ${color}%-16s${RESET} %-40s ${GRAY}%-16s${RESET}%b\n" \
+    printf "  ${color}%-16s${RESET} %-40s ${DIM}%-16s${RESET}%b\n" \
         "$status" "$domain" "$ip" "$notes_str"
     total=$((total + 1))
 done < "$TMPFILE"

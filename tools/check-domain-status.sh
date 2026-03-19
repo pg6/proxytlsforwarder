@@ -139,6 +139,14 @@ process_domain() {
     # Convert IDN to punycode for network operations
     ascii_domain=$(to_punycode "$domain")
 
+    # Check for SEDO nameservers
+    local ns_records
+    ns_records=$(dig +short NS "$ascii_domain" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    if echo "$ns_records" | grep -q 'sedoparking\.com'; then
+        echo "${domain},,SEDO,"
+        return
+    fi
+
     # Resolve IP
     ip=$(resolve_ip "$ascii_domain")
     if [[ -z "$ip" ]]; then
