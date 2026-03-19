@@ -30,6 +30,23 @@ OUTPUT_FILE="${BASENAME}_analysis.csv"
 
 echo "domain,resolved_ip,status,notes" > "$OUTPUT_FILE"
 
+# Convert IDN (UTF-8) domain to punycode for DNS/HTTP/TLS operations
+to_punycode() {
+    local domain="$1"
+    # If it's already ASCII, return as-is
+    if echo "$domain" | LC_ALL=C grep -qE '^[a-zA-Z0-9._-]+$'; then
+        echo "$domain"
+        return
+    fi
+    # Try idn2 first, fall back to python3
+    if command -v idn2 &>/dev/null; then
+        echo "$domain" | idn2 2>/dev/null && return
+    fi
+    python3 -c "print('$domain'.encode('idna').decode())" 2>/dev/null && return
+    # Last resort: return original and let it fail downstream
+    echo "$domain"
+}
+
 resolve_ip() {
     local domain="$1"
     dig +short "$domain" A 2>/dev/null | grep -E '^[0-9]+\.' | tail -1
@@ -94,17 +111,22 @@ normalize_url() {
 }
 
 # Check if a redirect target is just the same domain with/without www or scheme change
+# Compares against both the original (UTF-8) and punycode forms
 is_self_redirect() {
     local domain="$1"
-    local redirect_url="$2"
+    local ascii_domain="$2"
+    local redirect_url="$3"
     local norm_redirect
     norm_redirect=$(normalize_url "$redirect_url")
-    local norm_bare
-    norm_bare=$(normalize_url "$domain")
-    local norm_www
-    norm_www=$(normalize_url "www.${domain}")
 
-    if [[ "$norm_redirect" == "$norm_bare" || "$norm_redirect" == "$norm_www" ]]; then
+    local norm_bare norm_www norm_ascii_bare norm_ascii_www
+    norm_bare=$(normalize_url "$domain")
+    norm_www=$(normalize_url "www.${domain}")
+    norm_ascii_bare=$(normalize_url "$ascii_domain")
+    norm_ascii_www=$(normalize_url "www.${ascii_domain}")
+
+    if [[ "$norm_redirect" == "$norm_bare" || "$norm_redirect" == "$norm_www" \
+       || "$norm_redirect" == "$norm_ascii_bare" || "$norm_redirect" == "$norm_ascii_www" ]]; then
         return 0
     fi
     return 1
@@ -112,10 +134,13 @@ is_self_redirect() {
 
 process_domain() {
     local domain="$1"
-    local ip status notes
+    local ascii_domain ip status notes
+
+    # Convert IDN to punycode for network operations
+    ascii_domain=$(to_punycode "$domain")
 
     # Resolve IP
-    ip=$(resolve_ip "$domain")
+    ip=$(resolve_ip "$ascii_domain")
     if [[ -z "$ip" ]]; then
         echo "${domain},,CANT_RESOLVE_IP,"
         return
@@ -124,15 +149,15 @@ process_domain() {
     # If domain already points to our IP, check cert instead of HTTP
     if [[ "$ip" == "$BIND_IP" ]]; then
         local cert_status
-        cert_status=$(check_cert "$domain")
+        cert_status=$(check_cert "$ascii_domain")
         echo "${domain},${ip},${cert_status},"
         return
     fi
 
     # Check both bare and www
     local bare_result www_result
-    bare_result=$(check_http "http://${domain}")
-    www_result=$(check_http "http://www.${domain}")
+    bare_result=$(check_http "http://${ascii_domain}")
+    www_result=$(check_http "http://www.${ascii_domain}")
 
     local bare_type bare_url www_type www_url
     bare_type="${bare_result%%|*}"
@@ -168,7 +193,7 @@ process_domain() {
         fi
 
         # Different redirect targets — but check if they're just self-referencing (bare->www or www->bare)
-        if is_self_redirect "$domain" "$bare_url" && is_self_redirect "$domain" "$www_url"; then
+        if is_self_redirect "$domain" "$ascii_domain" "$bare_url" && is_self_redirect "$domain" "$ascii_domain" "$www_url"; then
             echo "${domain},${ip},REDIRECT,${bare_url}"
             return
         fi
@@ -179,7 +204,7 @@ process_domain() {
 
     # One redirects, one serves content
     if [[ "$bare_type" == "REDIRECT" && "$www_type" == "STATIC" ]]; then
-        if is_self_redirect "$domain" "$bare_url"; then
+        if is_self_redirect "$domain" "$ascii_domain" "$bare_url"; then
             echo "${domain},${ip},STATIC,bare redirects to ${bare_url}"
             return
         fi
@@ -188,7 +213,7 @@ process_domain() {
     fi
 
     if [[ "$bare_type" == "STATIC" && "$www_type" == "REDIRECT" ]]; then
-        if is_self_redirect "$domain" "$www_url"; then
+        if is_self_redirect "$domain" "$ascii_domain" "$www_url"; then
             echo "${domain},${ip},STATIC,www redirects to ${www_url}"
             return
         fi
